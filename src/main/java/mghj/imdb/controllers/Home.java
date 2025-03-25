@@ -38,4 +38,9 @@ public class Home {
     public Map<Integer, String> getBestMoviesByGenre(@RequestParam String genre) throws IOException {
         return titleFinder.findBestMoviesByGenre(genre);
     }
+
+    @GetMapping("/5")
+    public int getRequestCount() {
+        return requestCounterService.getRequestCount();
+    }
 }

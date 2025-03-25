@@ -21,6 +21,7 @@ public class IMDbTitleFinder {
     private static final String CREW_FILE = "title.crew.tsv.gz";
     private static final String PEOPLE_FILE = "name.basics.tsv.gz";
     private static final String TITLE_FILE = "title.basics.tsv.gz";
+    private static final String RATINGS_FILE = "title.ratings.tsv.gz";
 
     private static final String PRINCIPALS_FILE = "title.principals.tsv.gz";
 
@@ -46,8 +47,7 @@ public class IMDbTitleFinder {
         //loadCrewData();
         //loadActorMovies();
 
-        System.out.println("http://localhost:8080/2");
-        System.out.println("http://localhost:8080/3?actor1=Leonardo DiCaprio&actor2=Brad Pitt");
+
     }
 
     //2
@@ -189,6 +189,106 @@ public class IMDbTitleFinder {
 
         return result;
     }
+
+    //4
+    public Map<Integer, String> findBestMoviesByGenre(String genre) throws IOException {
+        genre = genre.toLowerCase(); // Normalize genre for case-insensitive search
+
+        Map<String, Integer> movieYears = new HashMap<>();  // Movie ID → Year
+        Map<String, Double> movieRatings = new HashMap<>(); // Movie ID → Rating
+        Map<String, Integer> movieVotes = new HashMap<>();  // Movie ID → Number of votes
+
+        System.out.println("Loading movies with genre: " + genre);
+
+        // Step 1: Load movies of the given genre
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                new GZIPInputStream(new FileInputStream(DATA_DIR + TITLE_FILE)), StandardCharsets.UTF_8))) {
+
+            String line;
+            reader.readLine(); // Skip header
+            int counter = 0;
+
+            while ((line = reader.readLine()) != null) {
+                counter++;
+                if (counter % 1_000_000 == 0) System.out.println("Processed " + counter + " lines...");
+
+                String[] parts = line.split("\t");
+                if (parts.length < 9) continue;
+
+                String movieId = parts[0];
+                String titleType = parts[1];
+                String yearStr = parts[5];
+                String genres = parts[8].toLowerCase();
+
+                if (!titleType.equals("movie") || !genres.contains(genre) || yearStr.equals("\\N")) continue;
+
+                int year = Integer.parseInt(yearStr);
+                movieYears.put(movieId, year);
+            }
+        }
+
+        // Step 2: Load ratings for those movies
+        System.out.println("Loading ratings...");
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                new GZIPInputStream(new FileInputStream(DATA_DIR + RATINGS_FILE)), StandardCharsets.UTF_8))) {
+
+            String line;
+            reader.readLine(); // Skip header
+            int counter = 0;
+
+            while ((line = reader.readLine()) != null) {
+                counter++;
+                if (counter % 500_000 == 0) System.out.println("Processed " + counter + " ratings...");
+
+                String[] parts = line.split("\t");
+                if (parts.length < 3) continue;
+
+                String movieId = parts[0];
+                double rating = Double.parseDouble(parts[1]);
+                int votes = Integer.parseInt(parts[2]);
+
+                if (movieYears.containsKey(movieId)) {
+                    movieRatings.put(movieId, rating);
+                    movieVotes.put(movieId, votes);
+                }
+            }
+        }
+
+        // Step 3: Find best movie per year
+        System.out.println("Finding best movie per year...");
+        Map<Integer, String> bestMoviesByYear = new HashMap<>();
+
+        for (String movieId : movieRatings.keySet()) {
+            int year = movieYears.get(movieId);
+            double rating = movieRatings.get(movieId);
+            int votes = movieVotes.get(movieId);
+
+            String currentBestMovieId = bestMoviesByYear.get(year);
+            Double currentBestRating = (currentBestMovieId != null) ? movieRatings.get(currentBestMovieId) : null;
+            Integer currentBestVotes = (currentBestMovieId != null) ? movieVotes.get(currentBestMovieId) : null;
+
+            if (currentBestRating == null || rating > currentBestRating ||
+                    (rating == currentBestRating && votes > currentBestVotes)) {
+
+                bestMoviesByYear.put(year, movieTitleMap.get(movieId)); // Store movie title instead of ID
+            }
+        }
+
+
+        return bestMoviesByYear;
+    }
+
+
+
+
+
+
+
+
+
+
+
 
 
     private void downloadFilesIfNeeded() throws IOException {

@@ -7,7 +7,9 @@ import mghj.imdb.repos.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("")
@@ -30,5 +32,10 @@ public class Home {
             @RequestParam String actor2) throws Exception {
 
         return titleFinder.findMoviesWithTwoActors(actor1, actor2);
+    }
+
+    @GetMapping("/4")
+    public Map<Integer, String> getBestMoviesByGenre(@RequestParam String genre) throws IOException {
+        return titleFinder.findBestMoviesByGenre(genre);
     }
 }

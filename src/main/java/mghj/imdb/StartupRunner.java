@@ -26,6 +26,11 @@ public class StartupRunner implements CommandLineRunner {
         System.out.println("Loading movies where director and writer are the same and alive...");
         moviesBySameDirectorWriter = titleFinder.findMoviesBySameDirectorWriter();
         System.out.println("Loaded " + moviesBySameDirectorWriter.size() + " movies.");
+
+
+        System.out.println("http://localhost:8080/2");
+        System.out.println("http://localhost:8080/3?actor1=Leonardo DiCaprio&actor2=Brad Pitt");
+        System.out.println("http://localhost:8080/4?genre=Sci-Fi");
     }
 
 }

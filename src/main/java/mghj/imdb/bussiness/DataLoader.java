@@ -6,11 +6,14 @@ import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.zip.GZIPInputStream;
 
 @Service
 public class DataLoader {
     private static final String DATA_DIR = "data/";
+    private static final int BATCH_SIZE = 50000;
 
     @Autowired private MovieRepository movieRepository;
     @Autowired private RatingRepository ratingRepository;
@@ -32,17 +35,22 @@ public class DataLoader {
 //        loadPeople();
     }
 
-    private void loadMovies() throws Exception {
+    public void loadMovies() throws Exception {
         String filePath = DATA_DIR + "title.basics.tsv.gz";
+
         try (BufferedReader reader = getReader(filePath)) {
+            String header = reader.readLine(); // Read header
+            System.out.println("Header: " + header);
+
+            List<Movie> movies = new ArrayList<>();
             String line;
-            reader.readLine(); // Skip Header
+            int rowCount = 0;
 
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split("\t");
 
                 Movie movie = new Movie();
-                movie.setTconst(Integer.parseInt( parts[0] ) );
+                movie.setTconst(parts[0]);
                 movie.setTitleType(parts[1]);
                 movie.setPrimaryTitle(parts[2]);
                 movie.setOriginalTitle(parts[3]);
@@ -52,8 +60,22 @@ public class DataLoader {
                 movie.setRuntimeMinutes(parseInt(parts[7]));
                 movie.setGenres(parts[8]);
 
-                movieRepository.save(movie);
+                movies.add(movie);
+                rowCount++;
+
+                // Batch insert every BATCH_SIZE records
+                if (movies.size() >= BATCH_SIZE) {
+                    movieRepository.saveAll(movies);
+                    movies.clear(); // Clear memory
+                }
             }
+
+            // Insert remaining records
+            if (!movies.isEmpty()) {
+                movieRepository.saveAll(movies);
+            }
+
+            System.out.println("Total Rows Imported: " + rowCount);
         }
     }
 
@@ -61,7 +83,8 @@ public class DataLoader {
         String filePath = DATA_DIR + "title.ratings.tsv.gz";
         try (BufferedReader reader = getReader(filePath)) {
             String line;
-            reader.readLine(); // Skip Header
+            String header=  reader.readLine(); // Skip Header
+            System.out.println(header);
 
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split("\t");

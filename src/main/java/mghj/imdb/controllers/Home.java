@@ -14,8 +14,8 @@ public class Home {
     @Autowired
     private CrewRepository crewRepository;
 
-    @GetMapping("/2")
-    public List<Movie> getMoviesWithSameDirectorWriterAlive() {
-        return crewRepository.findMoviesBySameDirectorAndWriterAlive();
-    }
+//    @GetMapping("/2")
+//    public List<Movie> getMoviesWithSameDirectorWriterAlive() {
+//        return crewRepository.findMoviesBySameDirectorAndWriterAlive();
+//    }
 }

@@ -1,5 +1,7 @@
 package mghj.imdb.controllers;
 
+import mghj.imdb.StartupRunner;
+import mghj.imdb.bussiness.IMDbTitleFinder;
 import mghj.imdb.entities.*;
 import mghj.imdb.repos.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,10 +14,21 @@ import java.util.List;
 public class Home {
 
     @Autowired
-    private CrewRepository crewRepository;
+    private StartupRunner startupRunner;
 
-//    @GetMapping("/2")
-//    public List<Movie> getMoviesWithSameDirectorWriterAlive() {
-//        return crewRepository.findMoviesBySameDirectorAndWriterAlive();
-//    }
+    @Autowired
+    private IMDbTitleFinder titleFinder;
+
+    @GetMapping("/2")
+    public List<String> getMoviesBySameDirectorWriter() {
+        return startupRunner.getMoviesBySameDirectorWriter();
+    }
+
+    @GetMapping("/3")
+    public List<String> getMoviesWithTwoActors(
+            @RequestParam String actor1,
+            @RequestParam String actor2) throws Exception {
+
+        return titleFinder.findMoviesWithTwoActors(actor1, actor2);
+    }
 }

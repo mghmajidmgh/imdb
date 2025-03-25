@@ -1,6 +1,7 @@
 package mghj.imdb;
 
 
+import lombok.Getter;
 import mghj.imdb.bussiness.DataLoader;
 import mghj.imdb.bussiness.FileDownloader;
 import mghj.imdb.bussiness.IMDbTitleFinder;
@@ -12,21 +13,19 @@ import java.util.List;
 
 @Component
 public class StartupRunner implements CommandLineRunner {
-    @Autowired
-    private FileDownloader fileDownloader;
 
-//    @Autowired
-//    private DataLoader dataLoader;
 
     @Autowired
-    IMDbTitleFinder titleFinder;
+    private IMDbTitleFinder titleFinder;
+
+    @Getter
+    private List<String> moviesBySameDirectorWriter; // Cached results
 
     @Override
     public void run(String... args) throws Exception {
-        titleFinder.findMoviesBySameDirectorWriter();
-
-//        String dataDir = "data";
-//        fileDownloader.downloadFiles(dataDir);
-//        dataLoader.loadAllData();
+        System.out.println("Loading movies where director and writer are the same and alive...");
+        moviesBySameDirectorWriter = titleFinder.findMoviesBySameDirectorWriter();
+        System.out.println("Loaded " + moviesBySameDirectorWriter.size() + " movies.");
     }
+
 }

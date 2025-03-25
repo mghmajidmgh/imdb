@@ -10,44 +10,100 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.zip.GZIPInputStream;
 
+record People(String name,boolean isAlive){};
+
 @Service
 public class IMDbTitleFinder {
     private static final String BASE_URL = "https://datasets.imdbws.com/";
     private static final String DATA_DIR = "data/";
+    private static final String CACHE_DIR = "cache/";
+
     private static final String CREW_FILE = "title.crew.tsv.gz";
     private static final String PEOPLE_FILE = "name.basics.tsv.gz";
     private static final String TITLE_FILE = "title.basics.tsv.gz";
 
     private static final String PRINCIPALS_FILE = "title.principals.tsv.gz";
 
+    private static final String DIRECTOR_WRITER_CACHE = CACHE_DIR + "DIRECTOR_WRITER.ser";
+    private static final String ALIVE_PEOPLE_CACHE = CACHE_DIR + "ALIVE_PEOPLE.ser";
+    private static final String MOVIE_TITLE_CACHE = CACHE_DIR + "movie_titles.ser";
 
-    private final Map<String, Set<String>> directorWriterMap = new HashMap<>();
-    private final Set<String> alivePeople = new HashSet<>();
-    private final Map<String, String> movieTitleMap = new HashMap<>();
 
-    private final Map<String, Set<String>> actorMovies = new HashMap<>();
+    private static Map<String, Set<String>> directorWriterMap;
+
+    private Map<String, String> actorNameToIdMap = new HashMap<>();
+    private static  Map<String, String> movieTitleMap  ;
 
     public IMDbTitleFinder() throws Exception {
-        downloadFilesIfNeeded();
-        loadPeopleData();
-        loadMovieTitles();
-        loadCrewData();
 
-        loadActorMovies();
+        downloadFilesIfNeeded();
+        //loadPeopleData();
+
+        movieTitleMap=new HashMap<>();
+        loadMovieTitles();
+
+        loadActorNames();
+        //loadCrewData();
+        //loadActorMovies();
+
+        System.out.println("http://localhost:8080/2");
+        System.out.println("http://localhost:8080/3?actor1=Leonardo DiCaprio&actor2=Brad Pitt");
     }
 
     //2
     public List<String> findMoviesBySameDirectorWriter() throws Exception {
+        Map<String, String> directorWriterMovies = new HashMap<>();
 
+        System.out.println("Processing: " + CREW_FILE);
+        int crewCounter = 0;
 
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                new GZIPInputStream(new FileInputStream(DATA_DIR + CREW_FILE)), StandardCharsets.UTF_8))) {
+
+            String line;
+            reader.readLine(); // Skip header
+
+            while ((line = reader.readLine()) != null) {
+                crewCounter++;
+                if (crewCounter % 1_000_000 == 0) System.out.println("Processed " + crewCounter + " lines...");
+
+                String[] parts = line.split("\t");
+                String movieId = parts[0];
+
+                List<String> directors = Arrays.asList(parts[1].split(","));
+                List<String> writers = Arrays.asList(parts[2].split(","));
+
+                if (directors.size() > 1 || writers.size() > 1) continue; // Skip if multiple directors or writers
+
+                if (directors.equals(writers)) { // Same person is both
+                    directorWriterMovies.put(directors.get(0), movieId);
+                }
+            }
+        }
+
+        // Step 2: Check if the person is alive while iterating `name.basics.tsv.gz`
+        System.out.println("Processing: " + PEOPLE_FILE);
+        int peopleCounter = 0;
         List<String> result = new ArrayList<>();
-        for (Map.Entry<String, Set<String>> entry : directorWriterMap.entrySet()) {
-            if (entry.getValue().size() == 1) { // Only one person is both writer & director
-                String personId = entry.getValue().iterator().next();
-                if (alivePeople.contains(personId)) {
-                    String movieTitle = movieTitleMap.get(entry.getKey());
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                new GZIPInputStream(new FileInputStream(DATA_DIR + PEOPLE_FILE)), StandardCharsets.UTF_8))) {
+
+            String line;
+            reader.readLine(); // Skip header
+
+            while ((line = reader.readLine()) != null) {
+                peopleCounter++;
+                if (peopleCounter % 1_000_000 == 0) System.out.println("Processed " + peopleCounter + " lines...");
+
+                String[] parts = line.split("\t");
+                String personId = parts[0];
+                String deathYear = parts[3];
+
+                if (directorWriterMovies.containsKey(personId) && deathYear.equals("\\N")) {
+                    String movieTitle = movieTitleMap.get(directorWriterMovies.get(personId));
                     if (movieTitle != null) {
-                        result.add(movieTitle); // Return movie title instead of ID
+                        result.add(movieTitle);
                     }
                 }
             }
@@ -55,23 +111,85 @@ public class IMDbTitleFinder {
 
         return result;
     }
+    private static List<String> fastSplit(String line) {
+        List<String> tokens = new ArrayList<>();
+        int start = 0;
+        int end;
+
+        while ((end = line.indexOf('\t', start)) != -1) {
+            tokens.add(line.substring(start, end));
+            start = end + 1;
+        }
+        tokens.add(line.substring(start)); // Add last token
+        return tokens;
+    }
+
+
 
     //3
-    public List<String> findMoviesByActors(String actor1, String actor2) {
-        Set<String> movies1 = actorMovies.getOrDefault(actor1, Collections.emptySet());
-        Set<String> movies2 = actorMovies.getOrDefault(actor2, Collections.emptySet());
+    public List<String> findMoviesWithTwoActors(String actorName1, String actorName2) throws Exception {
+        // Convert actor names to lowercase for case-insensitive lookup
+        actorName1 = actorName1.toLowerCase();
+        actorName2 = actorName2.toLowerCase();
 
-        movies1.retainAll(movies2); // Find common movies
+        // Get actor IDs from name
+        String actorId1 = actorNameToIdMap.get(actorName1);
+        String actorId2 = actorNameToIdMap.get(actorName2);
 
+        if (actorId1 == null || actorId2 == null) {
+            throw new IllegalArgumentException("Actor(s) not found: " + actorName1 + " or " + actorName2);
+        }
+
+        System.out.println("Searching movies for actors: " + actorName1 + " (" + actorId1 + "), " + actorName2 + " (" + actorId2 + ")");
+
+        // Find movies both actors played in
+        return findMoviesWithTwoActorIds(actorId1, actorId2);
+    }
+
+    public List<String> findMoviesWithTwoActorIds(String actorId1, String actorId2) throws Exception {
+        File file = new File(DATA_DIR + PRINCIPALS_FILE);
+        Set<String> actor1Movies = new HashSet<>();
+        Set<String> actor2Movies = new HashSet<>();
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                new GZIPInputStream(new FileInputStream(file)), StandardCharsets.UTF_8))) {
+
+            String line;
+            reader.readLine(); // Skip Header
+
+            int counter=0;
+            while ((line = reader.readLine()) != null) {
+
+                counter++;
+                if (counter % 1_000_000 == 0) System.out.println("Processed " + counter + " lines...");
+
+                String[] parts = line.split("\t");
+                String movieId = parts[0];
+                String personId = parts[2];
+
+                if (personId.equals(actorId1)) {
+                    actor1Movies.add(movieId);
+                } else if (personId.equals(actorId2)) {
+                    actor2Movies.add(movieId);
+                }
+            }
+        }
+
+        // Find common movies
+        actor1Movies.retainAll(actor2Movies);
+
+        // Convert movie IDs to Titles
         List<String> result = new ArrayList<>();
-        for (String movieId : movies1) {
+        for (String movieId : actor1Movies) {
             String title = movieTitleMap.get(movieId);
             if (title != null) {
                 result.add(title);
             }
         }
+
         return result;
     }
+
 
     private void downloadFilesIfNeeded() throws IOException {
         File dir = new File(DATA_DIR);
@@ -92,25 +210,27 @@ public class IMDbTitleFinder {
         }
     }
 
-    private void loadPeopleData() throws Exception {
-        File file = new File(DATA_DIR + PEOPLE_FILE);
+    private void loadActorNames() throws IOException {
+        System.out.println("Loading actor names...");
+
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                new GZIPInputStream(new FileInputStream(file)), StandardCharsets.UTF_8))) {
+                new GZIPInputStream(new FileInputStream(DATA_DIR + PEOPLE_FILE)), StandardCharsets.UTF_8))) {
 
             String line;
-            reader.readLine(); // Skip Header
+            reader.readLine(); // Skip header
 
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split("\t");
-                String personId = parts[0];
-                String deathYear = parts[3];
 
-                if (deathYear.equals("\\N")) { // Still alive
-                    alivePeople.add(personId);
-                }
+                if (parts.length < 2) continue;
+
+                String actorId = parts[0];
+                String actorName = parts[1].toLowerCase(); // Convert to lowercase for case-insensitive search
+                actorNameToIdMap.put(actorName, actorId);
             }
         }
-        System.out.println("Loaded " + alivePeople.size() + " alive people.");
+
+        System.out.println("Loaded " + actorNameToIdMap.size() + " actor names.");
     }
 
     private void loadMovieTitles() throws Exception {
@@ -162,25 +282,43 @@ public class IMDbTitleFinder {
         System.out.println("Loaded " + directorWriterMap.size() + " potential movies.");
     }
 
-    private void loadActorMovies() throws Exception {
-        File file = new File(DATA_DIR + PRINCIPALS_FILE);
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                new GZIPInputStream(new FileInputStream(file)), StandardCharsets.UTF_8))) {
 
-            String line;
-            reader.readLine(); // Skip Header
 
-            while ((line = reader.readLine()) != null) {
-                String[] parts = line.split("\t");
-                String movieId = parts[0];
-                String personId = parts[2];
-                String category = parts[3];
 
-                if (category.equals("actor") || category.equals("actress")) {
-                    actorMovies.computeIfAbsent(personId, k -> new HashSet<>()).add(movieId);
-                }
-            }
+
+
+    private void saveCache() {
+        saveObject(directorWriterMap, DIRECTOR_WRITER_CACHE );
+        saveObject(actorNameToIdMap, ALIVE_PEOPLE_CACHE );
+        saveObject(movieTitleMap, MOVIE_TITLE_CACHE);
+        System.out.println("✅ Saved data to cache!");
+    }
+
+    private boolean loadCache() {
+        directorWriterMap=loadObject(DIRECTOR_WRITER_CACHE);
+        actorNameToIdMap=loadObject(ALIVE_PEOPLE_CACHE);
+        movieTitleMap = loadObject(MOVIE_TITLE_CACHE);
+        return directorWriterMap!=null && actorNameToIdMap!=null && movieTitleMap != null ;
+    }
+
+    private void saveObject(Object object, String fileName) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(fileName))) {
+            oos.writeObject(object);
+        } catch (IOException e) {
+            System.err.println("⚠️ Failed to save cache: " + e.getMessage());
         }
-        System.out.println("Loaded " + actorMovies.size() + " actors.");
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T loadObject(String fileName) {
+        File file = new File(fileName);
+        if (!file.exists()) return null;
+
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
+            return (T) ois.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            System.err.println("⚠️ Failed to load cache: " + e.getMessage());
+            return null;
+        }
     }
 }

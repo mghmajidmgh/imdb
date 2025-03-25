@@ -7,12 +7,11 @@ public class RequestCounterService {
 
     private int requestCount = 0;
 
-    // Increment the count on every request
+
     public void increment() {
         requestCount++;
     }
 
-    // Get the current request count
     public int getRequestCount() {
         return requestCount;
     }

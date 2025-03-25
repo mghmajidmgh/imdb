@@ -1,6 +1,5 @@
 package mghj.imdb.bussiness;
 
-
 import org.apache.commons.io.FileUtils;
 import org.springframework.stereotype.Service;
 
@@ -274,7 +273,6 @@ public class IMDbTitleFinder {
                 bestMoviesByYear.put(year, movieTitleMap.get(movieId)); // Store movie title instead of ID
             }
         }
-
 
         return bestMoviesByYear;
     }

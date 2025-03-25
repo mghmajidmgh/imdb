@@ -14,14 +14,10 @@ public class RequestCountingFilter implements  jakarta.servlet.Filter {
 
     private final RequestCounterService requestCounterService;
 
-    // Constructor for dependency injection
+
     public RequestCountingFilter(RequestCounterService requestCounterService) {
         this.requestCounterService = requestCounterService;
     }
-
-
-
-
 
     @Override
     public void init(jakarta.servlet.FilterConfig filterConfig) throws jakarta.servlet.ServletException {
@@ -30,10 +26,9 @@ public class RequestCountingFilter implements  jakarta.servlet.Filter {
 
     @Override
     public void doFilter(jakarta.servlet.ServletRequest servletRequest, jakarta.servlet.ServletResponse servletResponse, jakarta.servlet.FilterChain filterChain) throws IOException, jakarta.servlet.ServletException {
-        // Increment the request count for each incoming request
+
         requestCounterService.increment();
 
-        // Continue the request-response chain
         filterChain.doFilter(servletRequest, servletResponse);
     }
 

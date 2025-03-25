@@ -13,7 +13,7 @@ public class FilterConfig {
         FilterRegistrationBean<RequestCountingFilter> registrationBean = new FilterRegistrationBean<>();
         // Make sure the filter is registered properly with the requestCounterService injected
         registrationBean.setFilter(new RequestCountingFilter(requestCounterService));
-        registrationBean.addUrlPatterns("/api/*", "/imdb/*", "/*");  // Optionally limit to specific URL patterns
+        registrationBean.addUrlPatterns("/*");
         return registrationBean;
     }
 }

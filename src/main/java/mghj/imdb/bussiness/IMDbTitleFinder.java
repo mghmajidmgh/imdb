@@ -144,6 +144,12 @@ public class IMDbTitleFinder {
                 if (counter % 1_000_000 == 0) System.out.println("Processed " + counter + " lines...");
 
                 String[] parts = line.split("\t");
+
+                String category = parts[3];
+                if (!category.equals("actor") && !category.equals("actress")) {
+                    continue;
+                }
+
                 String movieId = parts[0];
                 String personId = parts[2];
 

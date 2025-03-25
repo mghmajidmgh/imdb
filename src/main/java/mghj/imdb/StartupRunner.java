@@ -17,16 +17,22 @@ public class StartupRunner implements CommandLineRunner {
     @Autowired
     private IMDbTitleFinder titleFinder;
 
-    @Getter
+
     private List<String> moviesBySameDirectorWriter; // Cached results
+
+    public List<String> getMoviesBySameDirectorWriter() {
+        return moviesBySameDirectorWriter;
+    }
 
     @Override
     public void run(String... args) throws Exception {
+        titleFinder.Init();
+
         System.out.println("Loading movies where director and writer are the same and alive...");
         moviesBySameDirectorWriter = titleFinder.findMoviesBySameDirectorWriter();
         System.out.println("Loaded " + moviesBySameDirectorWriter.size() + " movies.");
 
-        titleFinder.Init();
+
 
         System.out.println("http://localhost:8080/2");
         System.out.println("http://localhost:8080/3?actor1=Leonardo%20DiCaprio&actor2=Brad%20Pitt");

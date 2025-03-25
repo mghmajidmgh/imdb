@@ -2,8 +2,7 @@ package mghj.imdb.controllers;
 
 import mghj.imdb.StartupRunner;
 import mghj.imdb.bussiness.IMDbTitleFinder;
-import mghj.imdb.entities.*;
-import mghj.imdb.repos.*;
+import mghj.imdb.bussiness.RequestCounterService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,6 +19,9 @@ public class Home {
 
     @Autowired
     private IMDbTitleFinder titleFinder;
+
+    @Autowired
+    private RequestCounterService requestCounterService;
 
     @GetMapping("/2")
     public List<String> getMoviesBySameDirectorWriter() {

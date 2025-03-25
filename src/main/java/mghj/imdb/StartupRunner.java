@@ -2,7 +2,6 @@ package mghj.imdb;
 
 
 import lombok.Getter;
-import mghj.imdb.bussiness.DataLoader;
 import mghj.imdb.bussiness.FileDownloader;
 import mghj.imdb.bussiness.IMDbTitleFinder;
 import org.springframework.beans.factory.annotation.Autowired;
